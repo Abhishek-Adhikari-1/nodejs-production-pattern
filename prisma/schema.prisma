@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum AccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  DELETED
+}
+
+enum AccountType {
+  EMAIL
+  OAUTH
+}
+
+enum VerificationType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  EMAIL_CHANGE
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  email_verified Boolean       @default(false)
+  name           String?
+  image          String?
+  role           Role          @default(USER)
+  status         AccountStatus @default(PENDING)
+  deleted_at     DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  verifications Verification[]
+
+  statusHistory     UserStatusHistory[] @relation("UserStatusHistory")
+  statusChangesMade UserStatusHistory[] @relation("StatusChangedBy")
+
+  @@index([status])
+  @@index([deleted_at])
+  @@map("users")
+}
+
+model UserStatusHistory {
+  id            String        @id @default(cuid())
+  user_id       String
+  status        AccountStatus
+  reason        String?
+  changed_by_id String?
+  created_at    DateTime      @default(now())
+
+  user      User  @relation("UserStatusHistory", fields: [user_id], references: [id], onDelete: Cascade)
+  changedBy User? @relation("StatusChangedBy", fields: [changed_by_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([changed_by_id])
+  @@map("user_status_history")
+}
+
+model Account {
+  id                       String      @id @default(cuid())
+  user_id                  String
+  type                     AccountType
+  provider                 String
+  provider_account_id      String
+  password                 String?
+  access_token             String?
+  refresh_token            String?
+  access_token_expires_at  DateTime?
+  refresh_token_expires_at DateTime?
+  scope                    String?
+  id_token                 String?
+  created_at               DateTime    @default(now())
+  updated_at               DateTime    @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider, provider_account_id])
+  @@index([user_id])
+  @@map("accounts")
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  user_id       String
+  token         String   @unique
+  refresh_token String   @unique
+  expires_at    DateTime
+  ip_address    String?
+  user_agent    String?
+  is_revoked     Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token])
+  @@index([refresh_token])
+  @@map("sessions")
+}
+
+model Verification {
+  id         String           @id @default(cuid())
+  user_id    String?
+  email      String
+  token      String           @unique
+  type       VerificationType
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime         @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([email])
+  @@map("verifications")
+}

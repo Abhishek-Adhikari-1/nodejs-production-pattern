@@ -7,20 +7,27 @@ import { HttpStatusCode } from "../types/http-status";
  * Recursively converts a JS object to an xmlbuilder2-compatible structure
  */
 const toXmlStructure = (data: unknown, rootKey = "item"): unknown => {
-  if (Array.isArray(data)) {
-    return data.map((item: unknown) => ({ [rootKey]: toXmlStructure(item) }));
+  if (data === null || data === undefined) {
+    return "";
   }
 
-  if (typeof data === "object" && data !== null) {
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+
+  if (Array.isArray(data)) {
+    return data.map((item: unknown) => toXmlStructure(item, rootKey));
+  }
+
+  if (typeof data === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
-      result[key] =
-        typeof value === "object" ? toXmlStructure(value, key) : String(value);
+      result[key] = toXmlStructure(value, key);
     }
     return result;
   }
 
-  return data;
+  return String(data);
 };
 
 /**

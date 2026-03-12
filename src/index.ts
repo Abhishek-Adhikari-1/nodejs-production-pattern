@@ -7,6 +7,8 @@ import contentNegotiation from "./middlewares/content-negotiation";
 import { errorHandler } from "./middlewares/error-handler";
 import dotenv from "dotenv";
 import xmlparser from "express-xml-bodyparser";
+import { prisma } from "./config/prisma";
+import { HTTP_STATUS } from "./utils/http-status";
 
 dotenv.config({
   debug: process.env.NODE_ENVIRONMENT !== "production",
@@ -30,25 +32,56 @@ const io = new Server(server, {
 
 app.use(contentNegotiation);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(xmlparser());
 
 app.use("/api", router);
+
+app.use((_req, res) => {
+  res.status(HTTP_STATUS.NOT_FOUND).respond({ message: "Route not found" });
+});
 
 app.use(errorHandler);
 
 setupSocket(io);
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`🔌 Socket.IO ready and listening`);
-});
+async function bootstrap() {
+  try {
+    await prisma.$connect();
+    console.log("🐘 Connected to the database successfully");
+
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`🔌 Socket.IO ready and listening`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start the server:", error);
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+}
+
+bootstrap();
+
+const shutdown = async (signal: string) => {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+  server.close(async () => {
+    console.log("HTTP server closed.");
+    await prisma.$disconnect();
+    console.log("🐘 Database disconnected.");
+    process.exit(0);
+  });
+};
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 process.on("unhandledRejection", (err: Error) => {
   console.error("UNHANDLED REJECTION! 💥 Shutting down...");
   console.error(err.name, err.message);
-  server.close(() => {
+  server.close(async () => {
+    await prisma.$disconnect();
     process.exit(1);
   });
 });
