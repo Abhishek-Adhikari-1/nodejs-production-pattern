@@ -21,7 +21,8 @@
     "express-xml-bodyparser": "^0.4.1",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3",
-    "xmlbuilder2": "^4.0.3"
+    "xmlbuilder2": "^4.0.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

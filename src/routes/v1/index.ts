@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { authRouter } from "./auth.routes";
 
 const router = Router();
 
@@ -13,5 +14,7 @@ router.get("/", (_req: Request, res: Response, next: NextFunction) => {
     return next(error);
   }
 });
+
+router.use("/auth", authRouter);
 
 export default router;

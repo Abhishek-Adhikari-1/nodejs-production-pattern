@@ -9,16 +9,18 @@ import dotenv from "dotenv";
 import xmlparser from "express-xml-bodyparser";
 import { prisma } from "./config/prisma";
 import { HTTP_STATUS } from "./utils/http-status";
+import { envConfig } from "./config/env-config";
 
 dotenv.config({
-  debug: process.env.NODE_ENVIRONMENT !== "production",
+  debug: envConfig.NODE_ENVIRONMENT !== "production",
 });
 
 const app = express();
 const server = http.createServer(app);
 
-const ALLOWED_ORIGINS = new Set(["*"]);
-const PORT = process.env.PORT || 3000;
+const ALLOWED_ORIGINS = new Set(envConfig.ALLOWED_ORIGINS);
+
+const PORT = envConfig.PORT;
 
 const io = new Server(server, {
   transports: ["websocket"],
