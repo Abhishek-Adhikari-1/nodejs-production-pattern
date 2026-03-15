@@ -30,6 +30,12 @@ enum AccountType {
   OAUTH
 }
 
+enum AccountProvider {
+  GOOGLE
+  GITHUB
+  CREDENTIALS
+}
+
 enum VerificationType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
@@ -81,7 +87,7 @@ model Account {
   id                       String      @id @default(cuid())
   user_id                  String
   type                     AccountType
-  provider                 String
+  provider                 AccountProvider
   provider_account_id      String
   password                 String?
   access_token             String?
@@ -122,7 +128,7 @@ model Session {
 
 model Verification {
   id         String           @id @default(cuid())
-  user_id    String?
+  user_id    String
   email      String
   token      String           @unique
   type       VerificationType

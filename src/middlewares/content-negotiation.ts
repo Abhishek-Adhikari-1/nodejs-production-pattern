@@ -60,6 +60,7 @@ const contentNegotiation = (
     const acceptHeader = req.headers["accept"] || "";
 
     res.status(statusCode);
+    res.removeHeader("X-Powered-By");
 
     if (
       acceptHeader.includes("application/xml") ||

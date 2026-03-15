@@ -55,4 +55,29 @@ export const authSchema = {
         error: "Password must include at least one number.",
       }),
   }),
+
+  verifyEmail: z.object({
+    token: z.string({ error: "Token must be a string." }).trim().nonempty({
+      error: "Verification token is required.",
+    }),
+  }),
+
+  login: z.object({
+    email: z
+      .email("That doesn't look like a valid email address.")
+      .trim()
+      .nonempty({
+        error: "Please enter your email address.",
+      })
+      .min(2, {
+        error: "Email address is too short.",
+      })
+      .max(100, {
+        error: "Email address is too long.",
+      }),
+
+    password: z.string({ error: "Password must be a string." }).nonempty({
+      error: "Please enter your password.",
+    }),
+  }),
 };
