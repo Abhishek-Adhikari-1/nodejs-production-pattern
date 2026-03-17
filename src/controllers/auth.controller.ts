@@ -9,7 +9,12 @@ import {
   getVerificationExpiry,
 } from "../utils/tokens";
 import { assertValidUser } from "../utils/user-guards";
-import { createSession } from "../services/session.service";
+import {
+  createSession,
+  revokeAllUserSessions,
+  revokeSession,
+} from "../services/session.service";
+import { assertAuthenticated } from "../middlewares/auth.middleware";
 
 export async function registerController(
   req: Request,
@@ -57,7 +62,7 @@ export async function registerController(
       },
     });
 
-    return res.status(201).respond({
+    return res.status(HTTP_STATUS.CREATED).respond({
       user: {
         name: user.name,
         email: user.email,
@@ -109,7 +114,7 @@ export async function verifyEmailController(
       }),
     ]);
 
-    return res.status(200).respond({
+    return res.status(HTTP_STATUS.OK).respond({
       message: "Email verified successfully. You can now log in.",
     });
   } catch (error) {
@@ -173,7 +178,7 @@ export async function loginController(
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(200).respond({
+    return res.status(HTTP_STATUS.OK).respond({
       message: "Login successful.",
       user: {
         id: user.id,
@@ -185,6 +190,52 @@ export async function loginController(
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_at: expiresAt,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function logoutController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    assertAuthenticated(req);
+
+    if (req.session) {
+      await revokeSession(req.session.id);
+    }
+
+    res.clearCookie("access_token");
+    res.clearCookie("refresh_token");
+
+    return res.status(HTTP_STATUS.OK).respond({
+      message: "Logged out successfully.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function logoutAllController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    assertAuthenticated(req);
+
+    if (req.session) {
+      await revokeAllUserSessions(req.user.id, req.session.id);
+    }
+
+    res.clearCookie("access_token");
+    res.clearCookie("refresh_token");
+
+    return res.status(HTTP_STATUS.OK).respond({
+      message: "Logged out from all devices.",
     });
   } catch (error) {
     return next(error);

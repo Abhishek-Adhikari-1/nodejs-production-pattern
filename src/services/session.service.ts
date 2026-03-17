@@ -45,9 +45,73 @@ export async function createSession(
   return { ...tokens, sessionId: session.id };
 }
 
+/**
+ * Revokes a session by deleting it.
+ *
+ * @param sessionId The ID of the session to revoke
+ */
 export async function revokeSession(sessionId: string): Promise<void> {
-  await prisma.session.update({
+  await prisma.session.delete({
     where: { id: sessionId },
-    data: { is_revoked: true },
+  });
+}
+
+/**
+ * Revokes all sessions for a user except the current one.
+ *
+ * @param userId The ID of the user
+ * @param exceptSessionId `optional` The ID of the session to exclude from revocation
+ */
+export async function revokeAllUserSessions(
+  userId: string,
+  exceptSessionId?: string,
+): Promise<void> {
+  await prisma.session.deleteMany({
+    where: {
+      user_id: userId,
+      is_revoked: false,
+      ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}),
+    },
+  });
+}
+
+/**
+ * Retrieves an active session by its ID.
+ *
+ * @param sessionId The ID of the session to retrieve
+ * @returns The active session if found, otherwise null
+ */
+export async function getActiveSession(sessionId: string) {
+  return prisma.session.findUnique({
+    where: {
+      id: sessionId,
+      is_revoked: false,
+      expires_at: { gt: new Date() },
+    },
+    include: { user: true },
+  });
+}
+
+/**
+ * Retrieves all active sessions for a user.
+ *
+ * @param userId The ID of the user
+ * @returns An array of active sessions for the user
+ */
+export async function getUserSessions(userId: string) {
+  return prisma.session.findMany({
+    where: {
+      user_id: userId,
+      is_revoked: false,
+      expires_at: { gt: new Date() },
+    },
+    orderBy: { created_at: "desc" },
+    select: {
+      id: true,
+      ip_address: true,
+      user_agent: true,
+      created_at: true,
+      expires_at: true,
+    },
   });
 }
