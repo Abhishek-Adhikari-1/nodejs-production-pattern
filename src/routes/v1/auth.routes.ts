@@ -1,10 +1,12 @@
 import { Router } from "express";
 import {
+  forgotPasswordController,
   loginController,
   logoutAllController,
   logoutController,
   refreshTokenController,
   registerController,
+  resetPasswordController,
   sendVerificationController,
   verifyEmailController,
 } from "../../controllers/auth.controller";
@@ -34,6 +36,18 @@ router.post(
   "/resend-verification",
   validate(authSchema.resendVerification),
   sendVerificationController,
+);
+
+router.post(
+  "/forgot-password",
+  validate(authSchema.forgotPassword),
+  forgotPasswordController,
+);
+
+router.post(
+  "/reset-password",
+  validate(authSchema.resetPassword),
+  resetPasswordController,
 );
 
 export { router as authRouter };

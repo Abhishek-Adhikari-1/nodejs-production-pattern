@@ -355,3 +355,130 @@ export async function sendVerificationController(
     return next(error);
   }
 }
+
+export async function forgotPasswordController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const successMessage =
+      "If an account with that email exists, a reset link has been sent.";
+    const { email } = req.body as { email: string };
+
+    const user = await prisma.user.findUnique({
+      where: { email: String(email) },
+    });
+
+    if (!user) {
+      return res.status(HTTP_STATUS.OK).respond({
+        message: successMessage,
+      });
+    }
+
+    const token = generateSecureToken();
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete all other verification tokens
+      await tx.verification.deleteMany({
+        where: {
+          user_id: user.id,
+          type: "PASSWORD_RESET",
+          used_at: null,
+        },
+      });
+
+      // 2. Create new verification token
+      await tx.verification.create({
+        data: {
+          email: String(email),
+          token: String(token),
+          type: "PASSWORD_RESET",
+          expires_at: getVerificationExpiry(1),
+          user_id: user.id,
+        },
+      });
+    });
+
+    return res.status(HTTP_STATUS.OK).respond({
+      message: successMessage,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function resetPasswordController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { token, password } = req.body as { token: string; password: string };
+
+    const hashedPassword = await hashPassword(String(password));
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Atomically find + validate token
+      const verification = await tx.verification.findFirst({
+        where: {
+          token: String(token),
+          type: "PASSWORD_RESET",
+          used_at: null,
+          expires_at: { gte: new Date() },
+        },
+      });
+
+      if (!verification) {
+        throw new AppError(
+          "Invalid or expired reset token",
+          HTTP_STATUS.UNAUTHORIZED,
+        );
+      }
+
+      // 2. Mark token as used FIRST (prevents race condition)
+      await tx.verification.update({
+        where: { id: verification.id },
+        data: { used_at: new Date() },
+      });
+
+      // 3. Get user
+      const user = await tx.user.findUnique({
+        where: { id: verification.user_id },
+      });
+
+      if (!user) {
+        throw new AppError("User not found.", HTTP_STATUS.NOT_FOUND);
+      }
+
+      // 4. Upsert credentials account (create if not exists)
+      await tx.account.upsert({
+        where: {
+          provider_provider_account_id: {
+            provider: "CREDENTIALS",
+            provider_account_id: user.email,
+          },
+        },
+        update: {
+          password: hashedPassword,
+        },
+        create: {
+          user_id: user.id,
+          type: "EMAIL",
+          provider: "CREDENTIALS",
+          provider_account_id: user.email,
+          password: hashedPassword,
+        },
+      });
+
+      await revokeAllUserSessions(user.id);
+    });
+
+    return res.status(HTTP_STATUS.OK).respond({
+      message:
+        "Password reset successfully. You can now login using email & password.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
