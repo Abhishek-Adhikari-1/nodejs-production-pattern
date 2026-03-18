@@ -53,7 +53,7 @@ export async function authenticate(
   }
 }
 
-function extractBearerToken(req: Request): string | null {
+export function extractBearerToken(req: Request): string | null {
   const auth = req.headers.authorization;
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
   return null;

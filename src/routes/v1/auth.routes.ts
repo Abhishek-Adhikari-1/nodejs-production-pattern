@@ -3,6 +3,7 @@ import {
   loginController,
   logoutAllController,
   logoutController,
+  refreshTokenController,
   registerController,
   verifyEmailController,
 } from "../../controllers/auth.controller";
@@ -25,5 +26,7 @@ router.post(
 router.post("/logout", authenticate, logoutController);
 
 router.post("/logout-all", authenticate, logoutAllController);
+
+router.post("/refresh", refreshTokenController);
 
 export { router as authRouter };

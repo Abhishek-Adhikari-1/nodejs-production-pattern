@@ -1,7 +1,10 @@
-import { User } from "@prisma/client";
+import { Session, User } from "@prisma/client";
 import prisma from "../config/prisma";
 import { TokenPair } from "../types/auth";
-import { generateTokenPair } from "../utils/tokens";
+import { generateTokenPair, parseDuration } from "../utils/tokens";
+import { AppError } from "../utils/app-error";
+import { HTTP_STATUS } from "../utils/http-status";
+import { envConfig } from "../config/env-config";
 
 /**
  * Creates a new session for a user.
@@ -39,6 +42,43 @@ export async function createSession(
       token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
       expires_at: tokens.expiresAt,
+    },
+  });
+
+  return { ...tokens, sessionId: session.id };
+}
+
+/**
+ * Updates a session for a user.
+ *
+ * @param session The session to update
+ * @param ipAddress `optional` The IP address of the user
+ * @param userAgent `optional` The user agent of the user
+ * @returns The updated session and its associated tokens
+ */
+export async function updateSession(
+  session: Session,
+  ipAddress?: string,
+  userAgent?: string,
+): Promise<TokenPair & { sessionId: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: session.user_id },
+  });
+
+  if (!user) {
+    throw new AppError("User not found.", HTTP_STATUS.NOT_FOUND);
+  }
+
+  const tokens = generateTokenPair(user.id, session.id, user.role);
+
+  await prisma.session.update({
+    where: { id: session.id },
+    data: {
+      token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      expires_at: tokens.expiresAt,
+      ip_address: ipAddress,
+      user_agent: userAgent,
     },
   });
 
@@ -112,6 +152,27 @@ export async function getUserSessions(userId: string) {
       user_agent: true,
       created_at: true,
       expires_at: true,
+    },
+  });
+}
+
+/**
+ * Cleans up expired and revoked sessions.
+ */
+export async function cleanExpiredSessions(): Promise<void> {
+  await prisma.session.deleteMany({
+    where: {
+      OR: [
+        { expires_at: { lt: new Date() } },
+        {
+          is_revoked: true,
+          updated_at: {
+            lt: new Date(
+              Date.now() - parseDuration(envConfig.JWT_REFRESH_EXPIRES_IN),
+            ),
+          },
+        },
+      ],
     },
   });
 }

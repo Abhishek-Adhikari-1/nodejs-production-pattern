@@ -7,14 +7,22 @@ import {
   COOKIE_OPTIONS,
   generateSecureToken,
   getVerificationExpiry,
+  parseDuration,
+  verifyRefreshToken,
 } from "../utils/tokens";
 import { assertValidUser } from "../utils/user-guards";
 import {
   createSession,
+  getActiveSession,
   revokeAllUserSessions,
   revokeSession,
+  updateSession,
 } from "../services/session.service";
-import { assertAuthenticated } from "../middlewares/auth.middleware";
+import {
+  assertAuthenticated,
+  extractBearerToken,
+} from "../middlewares/auth.middleware";
+import { envConfig } from "../config/env-config";
 
 export async function registerController(
   req: Request,
@@ -28,7 +36,9 @@ export async function registerController(
       password: string;
     };
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({
+      where: { email: String(email) },
+    });
     if (existing) {
       throw new AppError(
         "Registration failed. Try logging in or use a different email.",
@@ -41,20 +51,20 @@ export async function registerController(
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: String(name),
+        email: String(email),
         accounts: {
           create: {
             type: "EMAIL",
             provider: "CREDENTIALS",
-            provider_account_id: email,
-            password: hashedPassword,
+            provider_account_id: String(email),
+            password: String(hashedPassword),
           },
         },
         verifications: {
           create: {
-            email,
-            token,
+            email: String(email),
+            token: String(token),
             type: "EMAIL_VERIFICATION",
             expires_at: getVerificationExpiry(1),
           },
@@ -89,7 +99,7 @@ export async function verifyEmailController(
 
     const verification = await prisma.verification.findFirst({
       where: {
-        token,
+        token: String(token),
         type: "EMAIL_VERIFICATION",
         used_at: null,
         expires_at: { gt: new Date() },
@@ -111,6 +121,13 @@ export async function verifyEmailController(
       prisma.verification.update({
         where: { id: verification.id },
         data: { used_at: new Date() },
+      }),
+      prisma.verification.deleteMany({
+        where: {
+          user_id: verification.user_id,
+          type: "EMAIL_VERIFICATION",
+          id: { not: verification.id },
+        },
       }),
     ]);
 
@@ -136,7 +153,7 @@ export async function loginController(
     const ua = req.headers["user-agent"] ?? "unknown";
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: String(email) },
       include: {
         accounts: { where: { provider: "CREDENTIALS" } },
       },
@@ -170,12 +187,12 @@ export async function loginController(
 
     res.cookie("access_token", accessToken, {
       ...COOKIE_OPTIONS,
-      maxAge: 15 * 60 * 1000,
+      maxAge: parseDuration(envConfig.JWT_ACCESS_EXPIRES_IN),
     });
 
     res.cookie("refresh_token", refreshToken, {
       ...COOKIE_OPTIONS,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: parseDuration(envConfig.JWT_REFRESH_EXPIRES_IN),
     });
 
     return res.status(HTTP_STATUS.OK).respond({
@@ -236,6 +253,73 @@ export async function logoutAllController(
 
     return res.status(HTTP_STATUS.OK).respond({
       message: "Logged out from all devices.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function refreshTokenController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const token = extractBearerToken(req) ?? req.cookies?.refresh_token;
+    const ip = req.ip ?? "unknown";
+    const ua = req.headers["user-agent"] ?? "unknown";
+
+    if (!token) {
+      throw new AppError("Refresh token not found.", HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    let payload;
+    try {
+      payload = verifyRefreshToken(token);
+    } catch {
+      res.clearCookie("access_token");
+      res.clearCookie("refresh_token");
+      throw new AppError(
+        "Invalid or expired refresh token",
+        HTTP_STATUS.UNAUTHORIZED,
+      );
+    }
+
+    if (payload.type !== "refresh") {
+      throw new AppError("Invalid refresh token.", HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    const session = await getActiveSession(payload.sessionId);
+
+    if (!session) {
+      throw new AppError("Invalid refresh token.", HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    if (session.expires_at < new Date()) {
+      throw new AppError("Refresh token expired.", HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    const { accessToken, refreshToken, expiresAt } = await updateSession(
+      session,
+      ip,
+      ua,
+    );
+
+    res.cookie("access_token", accessToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: parseDuration(envConfig.JWT_ACCESS_EXPIRES_IN),
+    });
+
+    res.cookie("refresh_token", refreshToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: parseDuration(envConfig.JWT_REFRESH_EXPIRES_IN),
+    });
+
+    return res.status(HTTP_STATUS.OK).respond({
+      message: "Refresh token successful.",
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expiresAt,
     });
   } catch (error) {
     return next(error);

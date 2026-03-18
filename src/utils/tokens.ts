@@ -9,7 +9,7 @@ import { JWTAccessPayload, JWTRefreshPayload, TokenPair } from "../types/auth";
  * @param duration The duration string (e.g., "15m", "7d")
  * @returns The duration in milliseconds
  */
-function parseDuration(duration: string): number {
+export function parseDuration(duration: string): number {
   const unit = duration.slice(-1);
   const value = parseInt(duration.slice(0, -1));
   const map: Record<string, number> = {
