@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { envConfig } from "../config/env-config";
 import { JWTAccessPayload, JWTRefreshPayload, TokenPair } from "../types/auth";
 
@@ -40,6 +40,7 @@ export function generateAccessToken(
     sessionId,
     role,
     type: "access",
+    jti: randomUUID(),
   };
 
   return jwt.sign(payload, envConfig.JWT_ACCESS_SECRET, {

@@ -80,4 +80,20 @@ export const authSchema = {
       error: "Please enter your password.",
     }),
   }),
+
+  resendVerification: z.object({
+    email: z
+      .email("That doesn't look like a valid email address.")
+      .trim()
+      .nonempty({
+        error: "Please enter your email address.",
+      })
+      .min(2, {
+        error: "Email address is too short.",
+      })
+      .max(100, {
+        error: "Email address is too long.",
+      })
+      .transform((email) => email.toLowerCase()),
+  }),
 };

@@ -5,6 +5,7 @@ import {
   logoutController,
   refreshTokenController,
   registerController,
+  sendVerificationController,
   verifyEmailController,
 } from "../../controllers/auth.controller";
 import { validate } from "../../middlewares/validate.middleware";
@@ -28,5 +29,11 @@ router.post("/logout", authenticate, logoutController);
 router.post("/logout-all", authenticate, logoutAllController);
 
 router.post("/refresh", refreshTokenController);
+
+router.post(
+  "/resend-verification",
+  validate(authSchema.resendVerification),
+  sendVerificationController,
+);
 
 export { router as authRouter };

@@ -1,10 +1,10 @@
-import { Session, User } from "@prisma/client";
+import { Prisma, User } from "@prisma/client";
 import prisma from "../config/prisma";
 import { TokenPair } from "../types/auth";
 import { generateTokenPair, parseDuration } from "../utils/tokens";
 import { AppError } from "../utils/app-error";
-import { HTTP_STATUS } from "../utils/http-status";
 import { envConfig } from "../config/env-config";
+import { randomUUID } from "crypto";
 
 /**
  * Creates a new session for a user.
@@ -21,27 +21,18 @@ export async function createSession(
   ipAddress?: string,
   userAgent?: string,
 ): Promise<TokenPair & { sessionId: string }> {
-  // Create session placeholder to get an ID
+  const sessionId = randomUUID();
+  const tokens = generateTokenPair(user.id, sessionId, user.role);
+
   const session = await prisma.session.create({
     data: {
+      id: sessionId,
       user_id: user.id,
-      token: "pending",
-      refresh_token: "pending",
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      ip_address: ipAddress,
-      user_agent: userAgent,
-    },
-  });
-
-  const tokens = generateTokenPair(user.id, session.id, user.role);
-
-  // Update with real tokens
-  await prisma.session.update({
-    where: { id: session.id },
-    data: {
       token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
       expires_at: tokens.expiresAt,
+      ip_address: ipAddress,
+      user_agent: userAgent,
     },
   });
 
@@ -51,38 +42,50 @@ export async function createSession(
 /**
  * Updates a session for a user.
  *
- * @param session The session to update
+ * @param sessionId The ID of the session to update
  * @param ipAddress `optional` The IP address of the user
  * @param userAgent `optional` The user agent of the user
  * @returns The updated session and its associated tokens
  */
 export async function updateSession(
-  session: Session,
-  ipAddress?: string,
-  userAgent?: string,
-): Promise<TokenPair & { sessionId: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: session.user_id },
-  });
+  sessionId: string,
+  ip?: string,
+  ua?: string,
+) {
+  return await prisma.$transaction(
+    async (tx) => {
+      // 1. Read session inside transaction
+      const session = await tx.session.findUnique({
+        where: { id: sessionId },
+        include: { user: true },
+      });
 
-  if (!user) {
-    throw new AppError("User not found.", HTTP_STATUS.NOT_FOUND);
-  }
+      if (!session || session.is_revoked || session.expires_at < new Date()) {
+        throw new AppError("Invalid or expired refresh token.", 401);
+      }
 
-  const tokens = generateTokenPair(user.id, session.id, user.role);
+      const tokens = generateTokenPair(
+        session.user.id,
+        session.id,
+        session.user.role,
+      );
 
-  await prisma.session.update({
-    where: { id: session.id },
-    data: {
-      token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-      expires_at: tokens.expiresAt,
-      ip_address: ipAddress,
-      user_agent: userAgent,
+      // 2. Update session with new tokens atomically
+      await tx.session.update({
+        where: { id: session.id },
+        data: {
+          token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          expires_at: tokens.expiresAt,
+          ip_address: ip,
+          user_agent: ua,
+        },
+      });
+
+      return { ...tokens, sessionId: session.id };
     },
-  });
-
-  return { ...tokens, sessionId: session.id };
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }
 
 /**
@@ -91,9 +94,17 @@ export async function updateSession(
  * @param sessionId The ID of the session to revoke
  */
 export async function revokeSession(sessionId: string): Promise<void> {
-  await prisma.session.delete({
-    where: { id: sessionId },
-  });
+  try {
+    await prisma.session.delete({
+      where: { id: sessionId },
+    });
+  } catch (err: any) {
+    if (err.code === "P2025") {
+      // Session already deleted → treat as success
+      return;
+    }
+    throw err;
+  }
 }
 
 /**

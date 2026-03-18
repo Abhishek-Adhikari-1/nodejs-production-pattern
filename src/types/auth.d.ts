@@ -7,6 +7,7 @@ export interface JWTAccessPayload extends JwtPayload {
   sessionId: string;      // Current session ID
   role: string;           // User role (e.g., 'user', 'admin')
   type: "access";         // Token type indicator
+  jti: string;            // Random ID
 }
 
 export interface JWTRefreshPayload extends JwtPayload {
