@@ -20,9 +20,12 @@
     "argon2": "^0.44.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
     "express-xml-bodyparser": "^0.4.1",
+    "ioredis": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
+    "rate-limit-redis": "^4.3.1",
     "socket.io": "^4.8.3",
     "xmlbuilder2": "^4.0.3",
     "zod": "^4.3.6"

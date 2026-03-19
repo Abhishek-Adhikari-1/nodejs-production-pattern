@@ -17,15 +17,27 @@ import {
   googleCallbackController,
   googleRedirectController,
 } from "../../controllers/oauth.controller";
+import {
+  authLimiter,
+  generalLimiter,
+  passwordResetLimiter,
+  refreshLimiter,
+} from "../../middlewares/ratelimit.middleware";
 
 const router = Router();
 
-router.post("/login", validate(authSchema.login), loginController);
+router.post("/login", authLimiter, validate(authSchema.login), loginController);
 
-router.post("/register", validate(authSchema.register), registerController);
+router.post(
+  "/register",
+  authLimiter,
+  validate(authSchema.register),
+  registerController,
+);
 
 router.post(
   "/verify-email",
+  authLimiter,
   validate(authSchema.verifyEmail),
   verifyEmailController,
 );
@@ -34,7 +46,7 @@ router.post("/logout", authenticate, logoutController);
 
 router.post("/logout-all", authenticate, logoutAllController);
 
-router.post("/refresh", refreshTokenController);
+router.post("/refresh", refreshLimiter, refreshTokenController);
 
 router.post(
   "/resend-verification",
@@ -44,18 +56,21 @@ router.post(
 
 router.post(
   "/forgot-password",
+  passwordResetLimiter,
   validate(authSchema.forgotPassword),
   forgotPasswordController,
 );
 
 router.post(
   "/reset-password",
+  passwordResetLimiter,
   validate(authSchema.resetPassword),
   resetPasswordController,
 );
 
 router.get(
   "/google",
+  generalLimiter,
   validate(authSchema.googleLogin),
   googleRedirectController,
 );

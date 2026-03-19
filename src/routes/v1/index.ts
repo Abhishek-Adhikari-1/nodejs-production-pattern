@@ -1,9 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authRouter } from "./auth.routes";
+import { generalLimiter } from "../../middlewares/ratelimit.middleware";
 
 const router = Router();
 
-router.get("/", (_req: Request, res: Response, next: NextFunction) => {
+router.get("/", generalLimiter, (_req: Request, res: Response, next: NextFunction) => {
   try {
     return res.respond({
       timestamp: new Date().toISOString(),

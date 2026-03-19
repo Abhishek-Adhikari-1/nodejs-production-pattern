@@ -37,6 +37,8 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().trim().default(""),
   GOOGLE_CLIENT_SECRET: z.string().trim().default(""),
   GOOGLE_REDIRECT_URI: z.string().trim().default(""),
+
+  REDIS_URL: z.url("Must be a valid redis URL").trim().default(""),
 });
 
 const _env = envSchema.safeParse(process.env);
