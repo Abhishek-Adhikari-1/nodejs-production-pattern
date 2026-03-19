@@ -19,6 +19,7 @@ import {
 } from "../../controllers/oauth.controller";
 import {
   authLimiter,
+  forgotPasswordLimiter,
   generalLimiter,
   passwordResetLimiter,
   refreshLimiter,
@@ -56,7 +57,7 @@ router.post(
 
 router.post(
   "/forgot-password",
-  passwordResetLimiter,
+  forgotPasswordLimiter,
   validate(authSchema.forgotPassword),
   forgotPasswordController,
 );
@@ -68,7 +69,7 @@ router.post(
   resetPasswordController,
 );
 
-router.get(
+router.post(
   "/google",
   generalLimiter,
   validate(authSchema.googleLogin),

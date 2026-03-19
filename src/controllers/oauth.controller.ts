@@ -64,8 +64,7 @@ async function validateState(state: string) {
 
     return {
       valid: true,
-      redirect:
-        JSON.parse(verification.meta?.toString() ?? "{}")?.redirect,
+      redirect: JSON.parse(verification.meta?.toString() ?? "{}")?.redirect,
     };
   });
 }
@@ -88,7 +87,20 @@ async function findOrCreateOAuthUser(
             provider_account_id: profile.id,
           },
         },
-        include: { user: true },
+        include: {
+          user: {
+            include: {
+              statusHistory: {
+                orderBy: { created_at: "desc" },
+                take: 1,
+                select: {
+                  status: true,
+                  reason: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (existingAccount) {
@@ -107,6 +119,16 @@ async function findOrCreateOAuthUser(
       // 2. No Google account yet — check if a user with this email exists
       const existingUser = await tx.user.findUnique({
         where: { email: profile.email },
+        include: {
+          statusHistory: {
+            orderBy: { created_at: "desc" },
+            take: 1,
+            select: {
+              status: true,
+              reason: true,
+            },
+          },
+        },
       });
 
       if (existingUser) {
@@ -142,6 +164,16 @@ async function findOrCreateOAuthUser(
               email_verified: true,
               image: existingUser.image ?? profile.image,
             },
+            include: {
+              statusHistory: {
+                orderBy: { created_at: "desc" },
+                take: 1,
+                select: {
+                  status: true,
+                  reason: true,
+                },
+              },
+            },
           });
         }
         return existingUser;
@@ -154,7 +186,7 @@ async function findOrCreateOAuthUser(
           name: profile.name,
           image: profile.image,
           email_verified: true,
-          status: "APPROVED",
+          status: "PENDING",
           accounts: {
             create: {
               type: "OAUTH",
@@ -184,7 +216,20 @@ async function findOrCreateOAuthUser(
             provider_account_id: profile.id,
           },
         },
-        include: { user: true },
+        include: {
+          user: {
+            include: {
+              statusHistory: {
+                orderBy: { created_at: "desc" },
+                take: 1,
+                select: {
+                  status: true,
+                  reason: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (account) {
@@ -309,6 +354,8 @@ export async function googleCallbackController(
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status,
+        status_info: (user as any).statusHistory?.[0] || null,
         image: user.image,
       },
       access_token: accessToken,

@@ -160,6 +160,14 @@ export async function loginController(
       where: { email: String(email) },
       include: {
         accounts: { where: { provider: "CREDENTIALS" } },
+        statusHistory: {
+          orderBy: { created_at: "desc" },
+          take: 1,
+          select: {
+            status: true,
+            reason: true,
+          },
+        },
       },
     });
 
@@ -179,8 +187,18 @@ export async function loginController(
       );
     }
 
-    // Assert the user is approved, email verified, and not deleted
-    assertValidUser(user);
+    // Assert the user is email verified
+    assertValidUser(user, {
+      allowedStatuses: [
+        "APPROVED",
+        "PENDING",
+        "DELETED",
+        "REJECTED",
+        "SUSPENDED",
+      ],
+      requireEmailVerified: true,
+      requireDeleted: true,
+    });
 
     // Create session and generate tokens
     const { accessToken, refreshToken, expiresAt } = await createSession(
@@ -206,6 +224,8 @@ export async function loginController(
         email: user.email,
         name: user.name,
         role: user.role,
+        status: user.status,
+        status_info: user.statusHistory?.[0] || null,
         image: user.image,
       },
       access_token: accessToken,
