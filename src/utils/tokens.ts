@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { randomBytes, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { envConfig } from "../config/env-config";
 import { JWTAccessPayload, JWTRefreshPayload, TokenPair } from "../types/auth";
 
@@ -129,6 +129,16 @@ export function generateTokenPair(
  */
 export function generateSecureToken(bytes = 32): string {
   return randomBytes(bytes).toString("hex");
+}
+
+/**
+ * Hashes a token using SHA-256.
+ *
+ * @param token The token to hash
+ * @returns The hashed token
+ */
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 /**

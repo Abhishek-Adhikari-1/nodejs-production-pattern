@@ -39,7 +39,8 @@ enum AccountProvider {
 enum VerificationType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
-  EMAIL_CHANGE
+  OAUTH_STATE
+  MAGIC_LINK
 }
 
 model User {
@@ -128,17 +129,20 @@ model Session {
 
 model Verification {
   id         String           @id @default(cuid())
-  user_id    String
-  email      String
+  user_id    String?
+  email      String?
   token      String           @unique
   type       VerificationType
+  meta    Json?
+
   expires_at DateTime
   used_at    DateTime?
   created_at DateTime         @default(now())
 
   user User? @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([token])
   @@index([email])
+  @@index([user_id, type])
+  @@index([type, token])
   @@map("verifications")
 }

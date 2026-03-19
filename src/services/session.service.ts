@@ -9,17 +9,15 @@ import { randomUUID } from "crypto";
 /**
  * Creates a new session for a user.
  *
- * @param userId The ID of the user
- * @param email The email address of the user
- * @param role The role of the user
- * @param ipAddress The IP address of the user
- * @param userAgent The user agent of the user
+ * @param user The user to create a session for
+ * @param ip `optional` The IP address of the user
+ * @param ua `optional` The user agent of the user
  * @returns The created session and its associated tokens
  */
 export async function createSession(
   user: User,
-  ipAddress?: string,
-  userAgent?: string,
+  ip?: string,
+  ua?: string,
 ): Promise<TokenPair & { sessionId: string }> {
   const sessionId = randomUUID();
   const tokens = generateTokenPair(user.id, sessionId, user.role);
@@ -31,8 +29,8 @@ export async function createSession(
       token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
       expires_at: tokens.expiresAt,
-      ip_address: ipAddress,
-      user_agent: userAgent,
+      ip_address: ip,
+      user_agent: ua,
     },
   });
 
@@ -43,8 +41,8 @@ export async function createSession(
  * Updates a session for a user.
  *
  * @param sessionId The ID of the session to update
- * @param ipAddress `optional` The IP address of the user
- * @param userAgent `optional` The user agent of the user
+ * @param ip `optional` The IP address of the user
+ * @param ua `optional` The user agent of the user
  * @returns The updated session and its associated tokens
  */
 export async function updateSession(
@@ -95,7 +93,7 @@ export async function updateSession(
  */
 export async function revokeSession(sessionId: string): Promise<void> {
   try {
-    await prisma.session.delete({
+    await prisma.session.deleteMany({
       where: { id: sessionId },
     });
   } catch (err: any) {

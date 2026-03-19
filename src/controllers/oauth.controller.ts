@@ -13,16 +13,17 @@ import { envConfig } from "../config/env-config";
 import { OAuthProfile } from "../types/auth";
 import { Prisma } from "@prisma/client";
 
-// In-memory state store
-const oauthStates = new Map<string, { createdAt: number; redirect?: string }>();
-const STATE_TTL = 10 * 60 * 1000; // 10 minutes
-
-function generateState(redirect?: string): string {
+async function generateState(redirect?: string) {
   const state = randomBytes(16).toString("hex");
-  oauthStates.set(state, { createdAt: Date.now(), redirect });
 
-  // Cleanup old states
-  setTimeout(() => oauthStates.delete(state), STATE_TTL);
+  await prisma.verification.create({
+    data: {
+      token: state,
+      type: "OAUTH_STATE",
+      meta: redirect ? { redirect } : undefined,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000), // 10 min
+    },
+  });
 
   return state;
 }
@@ -40,13 +41,33 @@ function isValidRedirectUrl(url: string): boolean {
   }
 }
 
-function validateState(state: string): { valid: boolean; redirect?: string } {
-  const entry = oauthStates.get(state);
-  if (!entry || Date.now() - entry.createdAt > STATE_TTL) {
-    return { valid: false };
-  }
-  oauthStates.delete(state);
-  return { valid: true, redirect: entry.redirect };
+async function validateState(state: string) {
+  return prisma.$transaction(async (tx) => {
+    const verification = await tx.verification.findFirst({
+      where: {
+        token: state,
+        type: "OAUTH_STATE",
+        used_at: null,
+        expires_at: { gt: new Date() },
+      },
+    });
+
+    if (!verification) {
+      return { valid: false };
+    }
+
+    // 🔐 Mark as used FIRST (prevents replay attack + race condition)
+    await tx.verification.update({
+      where: { id: verification.id },
+      data: { used_at: new Date() },
+    });
+
+    return {
+      valid: true,
+      redirect:
+        JSON.parse(verification.meta?.toString() ?? "{}")?.redirect,
+    };
+  });
 }
 
 async function findOrCreateOAuthUser(
@@ -57,7 +78,7 @@ async function findOrCreateOAuthUser(
 ) {
   try {
     return await prisma.$transaction(async (tx) => {
-      // 1. Upsert the Google account 
+      // 1. Upsert the Google account
       //    If the account already exists → update tokens.
       //    If not → resolve the user first, then create.
       const existingAccount = await tx.account.findUnique({
@@ -183,7 +204,7 @@ async function findOrCreateOAuthUser(
   }
 }
 
-export function googleRedirectController(
+export async function googleRedirectController(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -198,7 +219,7 @@ export function googleRedirectController(
       );
     }
 
-    const state = generateState(redirect);
+    const state = await generateState(redirect);
     const url = getGoogleAuthUrl(state);
     return res.respond({ url, state });
   } catch (error) {
@@ -229,7 +250,7 @@ export async function googleCallbackController(
     }
 
     // 1. Validate state
-    const { valid, redirect } = validateState(state);
+    const { valid, redirect } = await validateState(state);
 
     if (!valid) {
       throw new AppError(

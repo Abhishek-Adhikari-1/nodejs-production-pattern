@@ -7,6 +7,7 @@ import {
   COOKIE_OPTIONS,
   generateSecureToken,
   getVerificationExpiry,
+  hashToken,
   parseDuration,
   verifyRefreshToken,
 } from "../utils/tokens";
@@ -38,6 +39,7 @@ export async function registerController(
 
     const hashedPassword = await hashPassword(password);
     const token = generateSecureToken();
+    const hashedToken = hashToken(token);
 
     let user;
     try {
@@ -56,7 +58,7 @@ export async function registerController(
           verifications: {
             create: {
               email: String(email),
-              token: String(token),
+              token: hashedToken,
               type: "EMAIL_VERIFICATION",
               expires_at: getVerificationExpiry(1),
             },
@@ -100,19 +102,20 @@ export async function verifyEmailController(
 ) {
   try {
     const { token } = req.body as { token: string };
+    const hashedToken = hashToken(token);
 
     await prisma.$transaction(async (tx) => {
       // 1. Find verification token
       const verification = await tx.verification.findFirst({
         where: {
-          token: String(token),
+          token: hashedToken,
           type: "EMAIL_VERIFICATION",
           used_at: null,
           expires_at: { gt: new Date() },
         },
       });
 
-      if (!verification) {
+      if (!verification || !verification.user_id) {
         throw new AppError(
           "Invalid or expired verification token.",
           HTTP_STATUS.BAD_REQUEST,
@@ -121,7 +124,7 @@ export async function verifyEmailController(
 
       // 2. Mark user as verified
       await tx.user.update({
-        where: { id: verification.user_id, email_verified: false },
+        where: { id: verification.user_id },
         data: { email_verified: true },
       });
 
@@ -287,6 +290,14 @@ export async function refreshTokenController(
     if (payload.type !== "refresh")
       throw new AppError("Invalid refresh token.", HTTP_STATUS.UNAUTHORIZED);
 
+    const session = await prisma.session.findUnique({
+      where: { id: payload.sessionId },
+    });
+
+    if (!session || session.is_revoked) {
+      throw new AppError("Invalid session", 401);
+    }
+
     const tokens = await updateSession(payload.sessionId, ip, ua);
 
     res.cookie("access_token", tokens.accessToken, {
@@ -325,10 +336,11 @@ export async function sendVerificationController(
       throw new AppError("User not found.", HTTP_STATUS.NOT_FOUND);
     }
 
-    const token = generateSecureToken();
+    const rawToken = generateSecureToken();
+    const hashedToken = hashToken(rawToken);
 
     await prisma.$transaction(async (tx) => {
-      // 1. Delete all other verification tokens
+      // Remove any existing email verification for this user
       await tx.verification.deleteMany({
         where: {
           user_id: user.id,
@@ -336,11 +348,11 @@ export async function sendVerificationController(
         },
       });
 
-      // 2. Create new verification token
+      // Create a fresh verification token
       await tx.verification.create({
         data: {
           email: String(email),
-          token: String(token),
+          token: hashedToken,
           type: "EMAIL_VERIFICATION",
           expires_at: getVerificationExpiry(1),
           user_id: user.id,
@@ -376,23 +388,23 @@ export async function forgotPasswordController(
       });
     }
 
-    const token = generateSecureToken();
+    const rawToken = generateSecureToken();
+    const hashedToken = hashToken(rawToken);
 
     await prisma.$transaction(async (tx) => {
-      // 1. Delete all other verification tokens
+      // Remove any existing password reset for this user
       await tx.verification.deleteMany({
         where: {
           user_id: user.id,
           type: "PASSWORD_RESET",
-          used_at: null,
         },
       });
 
-      // 2. Create new verification token
+      // Create a fresh reset token
       await tx.verification.create({
         data: {
           email: String(email),
-          token: String(token),
+          token: hashedToken,
           type: "PASSWORD_RESET",
           expires_at: getVerificationExpiry(1),
           user_id: user.id,
@@ -415,6 +427,7 @@ export async function resetPasswordController(
 ) {
   try {
     const { token, password } = req.body as { token: string; password: string };
+    const hashedToken = hashToken(String(token));
 
     const hashedPassword = await hashPassword(String(password));
 
@@ -422,14 +435,14 @@ export async function resetPasswordController(
       // 1. Atomically find + validate token
       const verification = await tx.verification.findFirst({
         where: {
-          token: String(token),
+          token: hashedToken,
           type: "PASSWORD_RESET",
           used_at: null,
           expires_at: { gte: new Date() },
         },
       });
 
-      if (!verification) {
+      if (!verification || !verification.user_id) {
         throw new AppError(
           "Invalid or expired reset token",
           HTTP_STATUS.UNAUTHORIZED,
