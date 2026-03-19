@@ -30,3 +30,13 @@ export interface AuthenticatedRequest extends Request {
   user: User;
   session: Session;
 }
+
+export interface OAuthProfile {
+  id: string;
+  email: string;
+  name: string;
+  image?: string;
+  provider: "google";
+  // emailVerified: boolean;
+  // raw: Record<string, unknown>;
+}

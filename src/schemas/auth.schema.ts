@@ -66,4 +66,12 @@ export const authSchema = {
     token: tokenSchema,
     password: passwordSchema,
   }),
+
+  googleLogin: z.object({
+    redirect: z
+      .url({ error: "Redirect must be a valid URL." })
+      .trim()
+      .max(2048, { error: "Redirect URL is too long." })
+      .optional(),
+  }),
 };

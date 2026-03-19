@@ -33,6 +33,10 @@ const envSchema = z.object({
 
   JWT_ACCESS_EXPIRES_IN: z.string().trim().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().trim().default("7d"),
+
+  GOOGLE_CLIENT_ID: z.string().trim().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().trim().default(""),
+  GOOGLE_REDIRECT_URI: z.string().trim().default(""),
 });
 
 const _env = envSchema.safeParse(process.env);
