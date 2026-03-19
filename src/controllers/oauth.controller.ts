@@ -22,9 +22,8 @@ function generateState(redirect?: string): string {
   oauthStates.set(state, { createdAt: Date.now(), redirect });
 
   // Cleanup old states
-  for (const [key, val] of oauthStates) {
-    if (Date.now() - val.createdAt > STATE_TTL) oauthStates.delete(key);
-  }
+  setTimeout(() => oauthStates.delete(state), STATE_TTL);
+
   return state;
 }
 
