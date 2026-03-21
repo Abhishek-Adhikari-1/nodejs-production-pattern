@@ -13,7 +13,7 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction,
 ) => {
-  if (envConfig.NODE_ENVIRONMENT !== "production") {
+  if (envConfig.NODE_ENV !== "production") {
     console.error(err);
   }
 
@@ -28,7 +28,7 @@ export const errorHandler = (
   } else if (err instanceof Error) {
     statusCode = 500;
     message =
-      envConfig.NODE_ENVIRONMENT === "production" && statusCode === 500
+      envConfig.NODE_ENV === "production" && statusCode === 500
         ? "Internal Server Error"
         : err.message;
   }

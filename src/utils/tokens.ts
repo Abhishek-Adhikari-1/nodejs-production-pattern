@@ -153,7 +153,7 @@ export function getVerificationExpiry(hours = 24): Date {
 
 export const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: envConfig.NODE_ENVIRONMENT === "production",
+  secure: envConfig.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
 };

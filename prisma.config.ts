@@ -10,6 +10,6 @@ export default defineConfig({
     url:
       `postgresql://${envConfig.DATABASE_USER}:${envConfig.DATABASE_PASSWORD}` +
       `@${envConfig.DATABASE_HOST}:${envConfig.DATABASE_PORT}/${envConfig.DATABASE_NAME}` +
-      `${envConfig.NODE_ENVIRONMENT === "production" ? "?sslmode=require" : ""}`,
+      `${envConfig.NODE_ENV === "production" ? "?sslmode=require" : ""}`,
   },
 });

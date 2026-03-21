@@ -12,7 +12,7 @@ import { HTTP_STATUS } from "./utils/http-status";
 import { envConfig } from "./config/env-config";
 
 dotenv.config({
-  debug: envConfig.NODE_ENVIRONMENT !== "production",
+  debug: envConfig.NODE_ENV !== "production",
 });
 
 const app = express();
@@ -57,7 +57,7 @@ async function bootstrap() {
 
     server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`Current Environment is: ${envConfig.NODE_ENVIRONMENT}`);
+      console.log(`Current Environment is: ${envConfig.NODE_ENV}`);
       console.log(`🔌 Socket.IO ready and listening`);
     });
   } catch (error) {

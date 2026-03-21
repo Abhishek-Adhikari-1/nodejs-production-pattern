@@ -10,7 +10,7 @@ const envSchema = z.object({
     .default("8000")
     .transform((val) => parseInt(val, 10)),
 
-  NODE_ENVIRONMENT: z
+  NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
 

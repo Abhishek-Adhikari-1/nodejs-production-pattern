@@ -10,7 +10,7 @@ const globalForPrisma = global as unknown as {
   prisma: PrismaClient;
 };
 
-const isProduction = envConfig.NODE_ENVIRONMENT === "production";
+const isProduction = envConfig.NODE_ENV === "production";
 
 let pool: Pool;
 
@@ -43,12 +43,12 @@ export const prisma =
   new PrismaClient({
     adapter,
     log:
-      envConfig.NODE_ENVIRONMENT === "production"
+      envConfig.NODE_ENV === "production"
         ? ["error", "warn"]
         : ["query", "error", "warn", "info"],
   });
 
-if (envConfig.NODE_ENVIRONMENT !== "production") {
+if (envConfig.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 

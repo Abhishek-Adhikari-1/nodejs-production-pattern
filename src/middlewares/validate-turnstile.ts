@@ -17,7 +17,7 @@ export async function validateTurnstile(
   next: NextFunction,
 ) {
   try {
-    if (envConfig.NODE_ENVIRONMENT === "development") {
+    if (envConfig.NODE_ENV === "development") {
       return next();
     }
 
