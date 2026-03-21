@@ -10,8 +10,32 @@ const globalForPrisma = global as unknown as {
   prisma: PrismaClient;
 };
 
-const connectionString = `${envConfig.DATABASE_URL}`;
-const pool = new Pool({ connectionString });
+const isProduction = envConfig.NODE_ENVIRONMENT === "production";
+
+let pool: Pool;
+
+if (isProduction) {
+  pool = new Pool({
+    user: envConfig.DATABASE_USER,
+    password: envConfig.DATABASE_PASSWORD,
+    host: envConfig.DATABASE_HOST,
+    port: envConfig.DATABASE_PORT,
+    database: envConfig.DATABASE_NAME,
+    ssl: {
+      rejectUnauthorized: true,
+      ca: envConfig.DATABASE_SSL_CA,
+    },
+  });
+} else {
+  pool = new Pool({
+    user: envConfig.DATABASE_USER,
+    password: envConfig.DATABASE_PASSWORD,
+    host: envConfig.DATABASE_HOST,
+    port: envConfig.DATABASE_PORT,
+    database: envConfig.DATABASE_NAME,
+  });
+}
+
 const adapter = new PrismaPg(pool as any);
 
 export const prisma =

@@ -19,7 +19,20 @@ const envSchema = z.object({
     .default("*")
     .transform((val) => val.split(",").map((item) => item.trim())),
 
-  DATABASE_URL: z.url("Must be a valid database URL").trim().default(""),
+  DATABASE_USER: z.string().trim().default(""),
+  DATABASE_PASSWORD: z.string().trim().default(""),
+  DATABASE_HOST: z.string().trim().default(""),
+  DATABASE_PORT: z
+    .string()
+    .trim()
+    .default("")
+    .transform((val) => parseInt(val, 10)),
+  DATABASE_NAME: z.string().trim().default(""),
+  DATABASE_SSL_CA: z
+    .string()
+    .trim()
+    .default("")
+    .transform((val) => val.replace(/\\n/g, "\n")),
 
   JWT_ACCESS_SECRET: z
     .string()

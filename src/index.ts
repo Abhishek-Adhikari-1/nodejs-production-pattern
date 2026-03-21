@@ -57,6 +57,7 @@ async function bootstrap() {
 
     server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`Current Environment is: ${envConfig.NODE_ENVIRONMENT}`);
       console.log(`🔌 Socket.IO ready and listening`);
     });
   } catch (error) {

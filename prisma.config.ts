@@ -7,6 +7,9 @@ dotenv.config();
 export default defineConfig({
   schema: "prisma/schema.prisma",
   datasource: {
-    url: envConfig.DATABASE_URL,
+    url:
+      `postgresql://${envConfig.DATABASE_USER}:${envConfig.DATABASE_PASSWORD}` +
+      `@${envConfig.DATABASE_HOST}:${envConfig.DATABASE_PORT}/${envConfig.DATABASE_NAME}` +
+      `${envConfig.NODE_ENVIRONMENT === "production" ? "?sslmode=require" : ""}`,
   },
 });
