@@ -24,15 +24,23 @@ import {
   passwordResetLimiter,
   refreshLimiter,
 } from "../../middlewares/ratelimit.middleware";
+import { validateTurnstile } from "../../middlewares/validate-turnstile";
 
 const router = Router();
 
-router.post("/login", authLimiter, validate(authSchema.login), loginController);
+router.post(
+  "/login",
+  authLimiter,
+  validate(authSchema.login),
+  validateTurnstile,
+  loginController,
+);
 
 router.post(
   "/register",
   authLimiter,
   validate(authSchema.register),
+  validateTurnstile,
   registerController,
 );
 
@@ -59,6 +67,7 @@ router.post(
   "/forgot-password",
   forgotPasswordLimiter,
   validate(authSchema.forgotPassword),
+  validateTurnstile,
   forgotPasswordController,
 );
 
@@ -66,6 +75,7 @@ router.post(
   "/reset-password",
   passwordResetLimiter,
   validate(authSchema.resetPassword),
+  validateTurnstile,
   resetPasswordController,
 );
 

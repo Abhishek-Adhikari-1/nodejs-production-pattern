@@ -41,12 +41,18 @@ const tokenSchema = z
   .trim()
   .nonempty({ error: "Verification token is required." });
 
+const turnstileTokenSchema = z
+  .string({ error: "Turnstile token must be a string." })
+  .trim()
+  .nonempty({ error: "Turnstile token is required." });
+
 // --- Full schemas ---
 export const authSchema = {
   register: z.object({
     name: nameSchema,
     email: emailSchema,
     password: passwordSchema,
+    turnstileToken: turnstileTokenSchema,
   }),
 
   login: z.object({
@@ -54,17 +60,22 @@ export const authSchema = {
     password: z
       .string({ error: "Password must be a string." })
       .nonempty({ error: "Please enter your password." }),
+    turnstileToken: turnstileTokenSchema,
   }),
 
   resendVerification: z.object({ email: emailSchema }),
 
-  forgotPassword: z.object({ email: emailSchema }),
+  forgotPassword: z.object({
+    email: emailSchema,
+    turnstileToken: turnstileTokenSchema,
+  }),
 
   verifyEmail: z.object({ token: tokenSchema }),
 
   resetPassword: z.object({
     token: tokenSchema,
     password: passwordSchema,
+    turnstileToken: turnstileTokenSchema,
   }),
 
   googleLogin: z.object({
